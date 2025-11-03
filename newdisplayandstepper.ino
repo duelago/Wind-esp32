@@ -1,0 +1,295 @@
+#include <WiFiManager.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <FastLED.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ST7789.h>
+#include <AccelStepper.h>
+#include <SPI.h>
+
+// LED Configuration
+#define LED_PIN 48
+#define NUM_LEDS 1
+CRGB leds[NUM_LEDS];
+
+// Display Configuration
+#define TFT_CS     10
+#define TFT_RST    9
+#define TFT_DC     8
+Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
+
+// Stepper Motor Configuration
+#define MOTOR_PIN1 14  // IN1 on the ULN2003 driver
+#define MOTOR_PIN2 12  // IN2 on the ULN2003 driver
+#define MOTOR_PIN3 13  // IN3 on the ULN2003 driver
+#define MOTOR_PIN4 15  // IN4 on the ULN2003 driver
+#define HOME_SWITCH 16 // GPIO16 motor zero position switch
+
+// Motor parameters
+#define STEPS_PER_ROTATION 4096
+#define STEPPER_MAX_SPEED 400.0
+#define STEPPER_HOMING_SPEED 100.0
+#define STEPPER_ACC 100.0
+#define STEPPER_HOMING_ACC 50.0
+
+// Stepper instance - Initialize with pin sequence IN1-IN3-IN2-IN4
+AccelStepper stepper(AccelStepper::HALF4WIRE, MOTOR_PIN1, MOTOR_PIN3, MOTOR_PIN2, MOTOR_PIN4, true);
+
+// Calibration variables
+long initHoming = -1;
+int stepperCalibrationStep = 0;
+bool homeSwitchInverse = true; // true if switch is NC (Normally Closed)
+bool isCalibrated = false;
+
+// Wind data structure
+struct WindInfo {
+    float speed;
+    float direction;
+    float temperature;
+} windInfo;
+
+// Debug flag
+#define DEBUG true
+#define DEBUG_SERIAL if (DEBUG) Serial
+
+// Function to calculate shortest distance for stepper rotation
+static long shortest_distance(long origin, long target) {
+    auto signedDiff = 0l;
+    auto raw_diff = origin > target ? origin - target : target - origin;
+    auto mod_diff = ((raw_diff % STEPS_PER_ROTATION) + STEPS_PER_ROTATION) % STEPS_PER_ROTATION;
+
+    if (mod_diff > (STEPS_PER_ROTATION / 2)) {
+        // There is a shorter path in opposite direction
+        signedDiff = STEPS_PER_ROTATION - mod_diff;
+        if (target > origin)
+            signedDiff = -signedDiff;
+    } else {
+        signedDiff = mod_diff;
+        if (origin > target)
+            signedDiff = -signedDiff;
+    }
+    return signedDiff;
+}
+
+// Function to run stepper motor
+void runStepper(long steps) {
+    if (steps != 0) {
+        stepper.enableOutputs();
+        stepper.move(steps);
+        stepper.runToPosition();
+        delay(2);
+        stepper.disableOutputs();
+    }
+}
+
+// Stepper calibration/homing routine (non-blocking)
+bool stepperPosCalibrate() {
+    pinMode(HOME_SWITCH, INPUT);
+
+    switch (stepperCalibrationStep) {
+        case 0:
+            stepper.stop();
+            stepper.setMaxSpeed(STEPPER_MAX_SPEED);
+            stepper.setAcceleration(STEPPER_ACC);
+            stepper.enableOutputs();
+            DEBUG_SERIAL.println("Stepper is Homing...");
+            stepperCalibrationStep = 10;
+            break;
+            
+        case 10:
+            stepper.move(initHoming);
+            initHoming--;
+            stepper.run();
+            delay(5);
+            if ((digitalRead(HOME_SWITCH) == LOW && !homeSwitchInverse) || 
+                (digitalRead(HOME_SWITCH) == HIGH && homeSwitchInverse)) {
+                stepperCalibrationStep = 20;
+            }
+            break;
+            
+        case 20:
+            stepper.setCurrentPosition(0);
+            stepper.setMaxSpeed(STEPPER_HOMING_SPEED);
+            stepper.setAcceleration(STEPPER_HOMING_ACC);
+            initHoming = 1;
+            stepperCalibrationStep = 30;
+            break;
+            
+        case 30:
+            stepper.move(initHoming);
+            stepper.run();
+            initHoming++;
+            delay(5);
+            if ((digitalRead(HOME_SWITCH) == HIGH && !homeSwitchInverse) || 
+                (digitalRead(HOME_SWITCH) == LOW && homeSwitchInverse)) {
+                stepperCalibrationStep = 40;
+            }
+            break;
+            
+        case 40:
+            stepper.setCurrentPosition(0);
+            DEBUG_SERIAL.println("Homing Completed");
+            stepper.setMaxSpeed(STEPPER_MAX_SPEED);
+            stepper.setAcceleration(STEPPER_ACC);
+            stepper.disableOutputs();
+            initHoming = -1;
+            stepperCalibrationStep = 0;
+            return true;
+            
+        default:
+            break;
+    }
+    return false;
+}
+
+// Move stepper to wind direction (0-360 degrees)
+void moveStepperToDirection(float targetDirection) {
+    auto targetPosition = long(targetDirection * double(STEPS_PER_ROTATION) / 360.0);
+    auto currentPosition = stepper.currentPosition();
+    runStepper(shortest_distance(currentPosition, targetPosition));
+}
+
+// Function to fetch data from the API
+String fetchData(const char* apiUrl) {
+    HTTPClient http;
+    http.begin(apiUrl);
+    int httpCode = http.GET();
+    
+    if (httpCode > 0) {
+        return http.getString();
+    } else {
+        DEBUG_SERIAL.println("Error on HTTP request");
+        return "";
+    }
+    http.end();
+}
+
+// Function to process JSON and control LED, Display, and Stepper
+void processJSON(String jsonResponse) {
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, jsonResponse);
+    
+    if (error) {
+        DEBUG_SERIAL.print("JSON Deserialization failed: ");
+        DEBUG_SERIAL.println(error.c_str());
+        return;
+    }
+
+    // Extract wind data
+    windInfo.speed = doc["wind"]["speed"];
+    windInfo.direction = doc["wind"]["direction"];
+    windInfo.temperature = doc["temperature"];
+
+    DEBUG_SERIAL.printf("Wind Speed: %.1f m/s, Direction: %.1f°, Temp: %.1f°C\n", 
+                        windInfo.speed, windInfo.direction, windInfo.temperature);
+
+    // Move stepper motor to wind direction (only if calibrated)
+    if (isCalibrated) {
+        moveStepperToDirection(windInfo.direction);
+    }
+
+    // Determine color based on conditions
+    uint16_t backgroundColor;
+    if (windInfo.speed > 10.0) {
+        leds[0] = CRGB::Blue;
+        backgroundColor = ST77XX_BLUE;
+    } else if (windInfo.speed >= 4.0 && windInfo.speed <= 8.0 && 
+               windInfo.direction >= 160.0 && windInfo.direction <= 260.0) {
+        leds[0] = CRGB::Green;
+        backgroundColor = ST77XX_GREEN;
+    } else {
+        leds[0] = CRGB::Red;
+        backgroundColor = ST77XX_RED;
+    }
+    FastLED.show();
+
+    // Update Display
+    tft.fillScreen(backgroundColor);
+    
+    // Wind Speed
+    tft.setCursor(10, 20);
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+    tft.println("Wind Speed");
+    
+    tft.setCursor(10, 50);
+    tft.setTextSize(5);
+    tft.print(windInfo.speed, 1);
+    tft.setTextSize(2);
+    tft.println(" m/s");
+    
+    // Wind Direction
+    tft.setCursor(10, 110);
+    tft.setTextSize(2);
+    tft.print("Direction: ");
+    tft.print(windInfo.direction, 0);
+    tft.println(" deg");
+    
+    // Temperature
+    tft.setCursor(10, 135);
+    tft.print("Temp: ");
+    tft.print(windInfo.temperature, 1);
+    tft.println(" C");
+}
+
+void setup() {
+    Serial.begin(115200);
+    
+    // Initialize LED
+    FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+    leds[0] = CRGB::Black;
+    FastLED.show();
+    
+    // Initialize Display
+    tft.init(172, 320);
+    tft.setRotation(1);
+    tft.fillScreen(ST77XX_BLACK);
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+    tft.setCursor(10, 60);
+    tft.println("Connecting WiFi...");
+    
+    // WiFiManager
+    WiFiManager wifiManager;
+    wifiManager.autoConnect("esp32-wind");
+    DEBUG_SERIAL.println("WiFi connected");
+    
+    tft.fillScreen(ST77XX_BLACK);
+    tft.setCursor(10, 60);
+    tft.println("WiFi Connected!");
+    delay(1000);
+    
+    // Initialize Stepper Motor
+    tft.fillScreen(ST77XX_BLACK);
+    tft.setCursor(10, 60);
+    tft.println("Calibrating motor...");
+    
+    // Perform homing/calibration
+    while (!isCalibrated) {
+        isCalibrated = stepperPosCalibrate();
+    }
+    
+    tft.fillScreen(ST77XX_BLACK);
+    tft.setCursor(10, 60);
+    tft.println("Ready!");
+    delay(1000);
+}
+
+void loop() {
+    static const char* apiUrl = "https://api.holfuy.com/live/?s=214&pw=correcthorsebatterystaple&m=JSON&tu=C&su=m/s";
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        String jsonResponse = fetchData(apiUrl);
+        if (jsonResponse.length() > 0) {
+            processJSON(jsonResponse);
+        }
+    } else {
+        DEBUG_SERIAL.println("WiFi not connected. Reconnecting...");
+        tft.fillScreen(ST77XX_BLACK);
+        tft.setCursor(10, 80);
+        tft.setTextSize(2);
+        tft.println("WiFi Error!");
+    }
+    
+    delay(60000); // Wait for 60 seconds before the next API call
+}
