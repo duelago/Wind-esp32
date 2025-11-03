@@ -2,21 +2,25 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <FastLED.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7789.h>
+#include <Arduino_GFX_Library.h>
 #include <AccelStepper.h>
 #include <SPI.h>
 
-// LED Configuration - ESP32-C6 onboard RGB LED
-#define LED_PIN 8  // GPIO8 for ESP32-C6 onboard WS2812 RGB LED
+// LED Configuration
+#define LED_PIN 8  // Change to a valid GPIO pin (common options: 2, 4, 5, 18, 19, 21, 22, 23)
 #define NUM_LEDS 1
 CRGB leds[NUM_LEDS];
 
 // Display Configuration
-#define TFT_CS     10
-#define TFT_RST    9
-#define TFT_DC     8
-Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
+#define TFT_CS     14
+#define TFT_RST    21
+#define TFT_DC     15
+#define TFT_SCK    7  // Use default SPI SCK
+#define TFT_MOSI   6  // Use default SPI MOSI
+
+// Initialize Arduino_GFX display
+Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, -1 /* MISO */);
+Arduino_GFX *tft = new Arduino_ST7789(bus, TFT_RST, 1 /* rotation */, true /* IPS */, 172 /* width */, 320 /* height */);
 
 // Stepper Motor Configuration
 #define MOTOR_PIN1 14  // IN1 on the ULN2003 driver
@@ -192,86 +196,85 @@ void processJSON(String jsonResponse) {
     uint16_t backgroundColor;
     if (windInfo.speed > 10.0) {
         leds[0] = CRGB::Blue;
-        backgroundColor = ST77XX_BLUE;
+        backgroundColor = BLUE;
     } else if (windInfo.speed >= 4.0 && windInfo.speed <= 8.0 && 
                windInfo.direction >= 160.0 && windInfo.direction <= 260.0) {
         leds[0] = CRGB::Green;
-        backgroundColor = ST77XX_GREEN;
+        backgroundColor = GREEN;
     } else {
         leds[0] = CRGB::Red;
-        backgroundColor = ST77XX_RED;
+        backgroundColor = RED;
     }
     FastLED.show();
 
     // Update Display
-    tft.fillScreen(backgroundColor);
+    tft->fillScreen(backgroundColor);
     
     // Wind Speed
-    tft.setCursor(10, 20);
-    tft.setTextColor(ST77XX_WHITE);
-    tft.setTextSize(2);
-    tft.println("Wind Speed");
+    tft->setCursor(10, 20);
+    tft->setTextColor(WHITE);
+    tft->setTextSize(2);
+    tft->println("Wind Speed");
     
-    tft.setCursor(10, 50);
-    tft.setTextSize(5);
-    tft.print(windInfo.speed, 1);
-    tft.setTextSize(2);
-    tft.println(" m/s");
+    tft->setCursor(10, 50);
+    tft->setTextSize(5);
+    tft->print(windInfo.speed, 1);
+    tft->setTextSize(2);
+    tft->println(" m/s");
     
     // Wind Direction
-    tft.setCursor(10, 110);
-    tft.setTextSize(2);
-    tft.print("Direction: ");
-    tft.print(windInfo.direction, 0);
-    tft.println(" deg");
+    tft->setCursor(10, 110);
+    tft->setTextSize(2);
+    tft->print("Direction: ");
+    tft->print(windInfo.direction, 0);
+    tft->println(" deg");
     
     // Temperature
-    tft.setCursor(10, 135);
-    tft.print("Temp: ");
-    tft.print(windInfo.temperature, 1);
-    tft.println(" C");
+    tft->setCursor(10, 135);
+    tft->print("Temp: ");
+    tft->print(windInfo.temperature, 1);
+    tft->println(" C");
 }
 
 void setup() {
     Serial.begin(115200);
     
-    // Initialize LED - WS2812 RGB LED on GPIO8
+    // Initialize LED
     FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
     leds[0] = CRGB::Black;
     FastLED.show();
     
     // Initialize Display
-    tft.init(172, 320);
-    tft.setRotation(1);
-    tft.fillScreen(ST77XX_BLACK);
-    tft.setTextColor(ST77XX_WHITE);
-    tft.setTextSize(2);
-    tft.setCursor(10, 60);
-    tft.println("Connecting WiFi...");
+    tft->begin();
+    tft->fillScreen(BLACK);
+    tft->setTextColor(WHITE);
+    tft->setTextSize(2);
+    tft->setCursor(10, 60);
+    tft->println("Connecting WiFi...");
     
     // WiFiManager
     WiFiManager wifiManager;
     wifiManager.autoConnect("esp32-wind");
     DEBUG_SERIAL.println("WiFi connected");
     
-    tft.fillScreen(ST77XX_BLACK);
-    tft.setCursor(10, 60);
-    tft.println("WiFi Connected!");
+    tft->fillScreen(BLACK);
+    tft->setCursor(10, 60);
+    tft->println("WiFi Connected!");
     delay(1000);
     
     // Initialize Stepper Motor
-    tft.fillScreen(ST77XX_BLACK);
-    tft.setCursor(10, 60);
-    tft.println("Calibrating motor...");
+    tft->fillScreen(BLACK);
+    tft->setCursor(10, 60);
+    tft->println("Calibrating motor...");
     
     // Perform homing/calibration
     while (!isCalibrated) {
         isCalibrated = stepperPosCalibrate();
     }
     
-    tft.fillScreen(ST77XX_BLACK);
-    tft.setCursor(10, 60);
-    tft.println("Ready!");
+    tft->fillScreen(BLACK);
+    tft->setCursor(10, 60);
+    tft->println("Ready!");
     delay(1000);
 }
 
@@ -285,10 +288,10 @@ void loop() {
         }
     } else {
         DEBUG_SERIAL.println("WiFi not connected. Reconnecting...");
-        tft.fillScreen(ST77XX_BLACK);
-        tft.setCursor(10, 80);
-        tft.setTextSize(2);
-        tft.println("WiFi Error!");
+        tft->fillScreen(BLACK);
+        tft->setCursor(10, 80);
+        tft->setTextSize(2);
+        tft->println("WiFi Error!");
     }
     
     delay(60000); // Wait for 60 seconds before the next API call
