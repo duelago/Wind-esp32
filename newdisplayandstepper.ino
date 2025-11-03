@@ -17,6 +17,7 @@ CRGB leds[NUM_LEDS];
 #define TFT_DC     15
 #define TFT_SCK    7  // Use default SPI SCK
 #define TFT_MOSI   6  // Use default SPI MOSI
+#define TFT_BL 22
 
 // Initialize Arduino_GFX display
 Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, -1 /* MISO */);
