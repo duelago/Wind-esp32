@@ -7,8 +7,8 @@
 #include <AccelStepper.h>
 #include <SPI.h>
 
-// LED Configuration
-#define LED_PIN 48
+// LED Configuration - ESP32-C6 onboard RGB LED
+#define LED_PIN 8  // GPIO8 for ESP32-C6 onboard WS2812 RGB LED
 #define NUM_LEDS 1
 CRGB leds[NUM_LEDS];
 
@@ -235,7 +235,7 @@ void processJSON(String jsonResponse) {
 void setup() {
     Serial.begin(115200);
     
-    // Initialize LED
+    // Initialize LED - WS2812 RGB LED on GPIO8
     FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
     leds[0] = CRGB::Black;
     FastLED.show();
