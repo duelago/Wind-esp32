@@ -49,18 +49,22 @@ void processJSON(String jsonResponse) {
 
     Serial.printf("Wind Speed: %.1f, Wind Direction: %.1f\n", windSpeed, windDirection);
 
-    // Update LED
+    // Determine color based on conditions
+    uint16_t backgroundColor;
     if (windSpeed > 10.0) {
         leds[0] = CRGB::Blue;
+        backgroundColor = ST77XX_BLUE;
     } else if (windSpeed >= 4.0 && windSpeed <= 8.0 && windDirection >= 160.0 && windDirection <= 260.0) {
         leds[0] = CRGB::Green;
+        backgroundColor = ST77XX_GREEN;
     } else {
         leds[0] = CRGB::Red;
+        backgroundColor = ST77XX_RED;
     }
     FastLED.show();
 
-    // Update Display
-    tft.fillScreen(ST77XX_BLACK);
+    // Update Display with matching background color
+    tft.fillScreen(backgroundColor);
     tft.setCursor(10, 40);
     tft.setTextColor(ST77XX_WHITE);
     tft.setTextSize(3);
