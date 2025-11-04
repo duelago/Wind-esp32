@@ -59,6 +59,10 @@ struct WindInfo {
 #define DEBUG true
 #define DEBUG_SERIAL if (DEBUG) Serial
 
+// Include FreeFonts
+#include "Fonts/FreeSansBold24pt7b.h"
+#include "Fonts/FreeSansBold18pt7b.h"
+
 // Function to calculate shortest distance for stepper rotation
 static long shortest_distance(long origin, long target) {
     auto signedDiff = 0l;
@@ -170,40 +174,41 @@ String fetchData(const char* apiUrl) {
     http.end();
 }
 
-// Function to display centered text with automatic positioning
+// Function to display centered wind speed with FreeSansBold
 void displayCenteredWindSpeed(float speed, uint16_t textColor, uint16_t bgColor) {
     tft->fillScreen(bgColor);
     
     // Convert speed to string with 1 decimal place
     char speedStr[8];
     dtostrf(speed, 0, 1, speedStr);
+    char label[] = " m/s";
     
-    // Calculate approximate text width
-    // For size 10 font: each character is approximately 60 pixels wide
-    // Numbers + decimal point
-    int textLength = strlen(speedStr);
-    int charWidth = 60;  // Approximate width per character at size 10
-    int totalWidth = textLength * charWidth;
-    
-    // Calculate centered X position
-    int xPos = (SCREEN_WIDTH - totalWidth) / 2;
-    
-    // Calculate centered Y position (accounting for text height)
-    int textHeight = 80;  // Approximate height for size 10
-    int yPos = (SCREEN_HEIGHT - textHeight) / 2;
-    
-    // Draw the wind speed number centered
+    // Set font for the speed number and get dimensions
+    tft->setFont(&FreeSansBold24pt7b);
     tft->setTextColor(textColor);
-    tft->setTextSize(10);
-    tft->setCursor(xPos, yPos);
+    
+    int16_t x1, y1;
+    uint16_t w_speed, h_speed;
+    tft->getTextBounds(speedStr, 0, 0, &x1, &y1, &w_speed, &h_speed);
+    
+    // Get dimensions for the smaller "m/s" label
+    tft->setFont(&FreeSansBold18pt7b);
+    uint16_t w_label, h_label;
+    tft->getTextBounds(label, 0, 0, &x1, &y1, &w_label, &h_label);
+    
+    // Calculate total width and centered starting position
+    int totalWidth = w_speed + w_label;
+    int startX = (SCREEN_WIDTH - totalWidth) / 2;
+    int yPos = (SCREEN_HEIGHT / 2);
+    
+    // Draw the wind speed number
+    tft->setFont(&FreeSansBold24pt7b);
+    tft->setCursor(startX, yPos);
     tft->print(speedStr);
     
-    // Add "m/s" label below in smaller text
-    tft->setTextSize(3);
-    char label[] = "m/s";
-    int labelWidth = strlen(label) * 18;  // Approximate width for size 3
-    int labelX = (SCREEN_WIDTH - labelWidth) / 2;
-    tft->setCursor(labelX, yPos + 90);
+    // Draw "m/s" label on the same line with smaller font
+    tft->setFont(&FreeSansBold18pt7b);
+    tft->setCursor(startX + w_speed, yPos);
     tft->print(label);
 }
 
