@@ -7,7 +7,7 @@
 #include <SPI.h>
 
 // LED Configuration
-#define LED_PIN 8  // Change to a valid GPIO pin (common options: 2, 4, 5, 18, 19, 21, 22, 23)
+#define LED_PIN 8
 #define NUM_LEDS 1
 CRGB leds[NUM_LEDS];
 
@@ -15,20 +15,23 @@ CRGB leds[NUM_LEDS];
 #define TFT_CS     14
 #define TFT_RST    21
 #define TFT_DC     15
-#define TFT_SCK    7  // Use default SPI SCK
-#define TFT_MOSI   6  // Use default SPI MOSI
+#define TFT_SCK    7
+#define TFT_MOSI   6
 #define TFT_BL 22
 
-// Initialize Arduino_GFX display
-Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, -1 /* MISO */);
-Arduino_GFX *tft = new Arduino_ST7789(bus, TFT_RST, 1 /* rotation */, true /* IPS */, 172 /* width */, 320 /* height */);
+// Display dimensions
+#define SCREEN_WIDTH 172
+#define SCREEN_HEIGHT 320
+
+Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, -1);
+Arduino_GFX *tft = new Arduino_ST7789(bus, TFT_RST, 1, true, SCREEN_WIDTH, SCREEN_HEIGHT);
 
 // Stepper Motor Configuration
-#define MOTOR_PIN1 14  // IN1 on the ULN2003 driver
-#define MOTOR_PIN2 12  // IN2 on the ULN2003 driver
-#define MOTOR_PIN3 13  // IN3 on the ULN2003 driver
-#define MOTOR_PIN4 15  // IN4 on the ULN2003 driver
-#define HOME_SWITCH 16 // GPIO16 motor zero position switch
+#define MOTOR_PIN1 14
+#define MOTOR_PIN2 12
+#define MOTOR_PIN3 13
+#define MOTOR_PIN4 15
+#define HOME_SWITCH 16
 
 // Motor parameters
 #define STEPS_PER_ROTATION 4096
@@ -37,13 +40,12 @@ Arduino_GFX *tft = new Arduino_ST7789(bus, TFT_RST, 1 /* rotation */, true /* IP
 #define STEPPER_ACC 100.0
 #define STEPPER_HOMING_ACC 50.0
 
-// Stepper instance - Initialize with pin sequence IN1-IN3-IN2-IN4
 AccelStepper stepper(AccelStepper::HALF4WIRE, MOTOR_PIN1, MOTOR_PIN3, MOTOR_PIN2, MOTOR_PIN4, true);
 
 // Calibration variables
 long initHoming = -1;
 int stepperCalibrationStep = 0;
-bool homeSwitchInverse = true; // true if switch is NC (Normally Closed)
+bool homeSwitchInverse = true;
 bool isCalibrated = false;
 
 // Wind data structure
@@ -64,7 +66,6 @@ static long shortest_distance(long origin, long target) {
     auto mod_diff = ((raw_diff % STEPS_PER_ROTATION) + STEPS_PER_ROTATION) % STEPS_PER_ROTATION;
 
     if (mod_diff > (STEPS_PER_ROTATION / 2)) {
-        // There is a shorter path in opposite direction
         signedDiff = STEPS_PER_ROTATION - mod_diff;
         if (target > origin)
             signedDiff = -signedDiff;
@@ -169,6 +170,43 @@ String fetchData(const char* apiUrl) {
     http.end();
 }
 
+// Function to display centered text with automatic positioning
+void displayCenteredWindSpeed(float speed, uint16_t textColor, uint16_t bgColor) {
+    tft->fillScreen(bgColor);
+    
+    // Convert speed to string with 1 decimal place
+    char speedStr[8];
+    dtostrf(speed, 0, 1, speedStr);
+    
+    // Calculate approximate text width
+    // For size 10 font: each character is approximately 60 pixels wide
+    // Numbers + decimal point
+    int textLength = strlen(speedStr);
+    int charWidth = 60;  // Approximate width per character at size 10
+    int totalWidth = textLength * charWidth;
+    
+    // Calculate centered X position
+    int xPos = (SCREEN_WIDTH - totalWidth) / 2;
+    
+    // Calculate centered Y position (accounting for text height)
+    int textHeight = 80;  // Approximate height for size 10
+    int yPos = (SCREEN_HEIGHT - textHeight) / 2;
+    
+    // Draw the wind speed number centered
+    tft->setTextColor(textColor);
+    tft->setTextSize(10);
+    tft->setCursor(xPos, yPos);
+    tft->print(speedStr);
+    
+    // Add "m/s" label below in smaller text
+    tft->setTextSize(3);
+    char label[] = "m/s";
+    int labelWidth = strlen(label) * 18;  // Approximate width for size 3
+    int labelX = (SCREEN_WIDTH - labelWidth) / 2;
+    tft->setCursor(labelX, yPos + 90);
+    tft->print(label);
+}
+
 // Function to process JSON and control LED, Display, and Stepper
 void processJSON(String jsonResponse) {
     StaticJsonDocument<512> doc;
@@ -195,6 +233,8 @@ void processJSON(String jsonResponse) {
 
     // Determine color based on conditions
     uint16_t backgroundColor;
+    uint16_t textColor = WHITE;
+    
     if (windInfo.speed > 10.0) {
         leds[0] = CRGB::Blue;
         backgroundColor = BLUE;
@@ -208,33 +248,8 @@ void processJSON(String jsonResponse) {
     }
     FastLED.show();
 
-    // Update Display
-    tft->fillScreen(backgroundColor);
-    
-    // Wind Speed
-    tft->setCursor(10, 20);
-    tft->setTextColor(WHITE);
-    tft->setTextSize(2);
-    tft->println("Wind Speed");
-    
-    tft->setCursor(10, 50);
-    tft->setTextSize(5);
-    tft->print(windInfo.speed, 1);
-    tft->setTextSize(2);
-    tft->println(" m/s");
-    
-    // Wind Direction
-    tft->setCursor(10, 110);
-    tft->setTextSize(2);
-    tft->print("Direction: ");
-    tft->print(windInfo.direction, 0);
-    tft->println(" deg");
-    
-    // Temperature
-    tft->setCursor(10, 135);
-    tft->print("Temp: ");
-    tft->print(windInfo.temperature, 1);
-    tft->println(" C");
+    // Display centered wind speed
+    displayCenteredWindSpeed(windInfo.speed, textColor, backgroundColor);
 }
 
 void setup() {
