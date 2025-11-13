@@ -57,6 +57,9 @@ struct WindInfo {
 #define DEBUG true
 #define DEBUG_SERIAL if (DEBUG) Serial
 
+// Calibration flag - set to false to skip motor calibration
+#define ENABLE_CALIBRATION false
+
 // Include FreeFonts
 #include "Fonts/FreeSansBold24pt7b.h"
 #include "Fonts/FreeSansBold18pt7b.h"
@@ -310,13 +313,35 @@ void setup() {
     
     // Initialize Display
     DEBUG_SERIAL.println("[INIT] Initializing display...");
+    
+    // Turn on backlight first
+    pinMode(TFT_BL, OUTPUT);
+    digitalWrite(TFT_BL, HIGH);
+    DEBUG_SERIAL.println("[INIT] Backlight turned ON");
+    
     tft->begin();
+    DEBUG_SERIAL.println("[INIT] Display begin() called");
+    
+    delay(100); // Give display time to initialize
+    
+    tft->fillScreen(RED);
+    DEBUG_SERIAL.println("[INIT] Filled screen RED - can you see this?");
+    delay(1000);
+    
+    tft->fillScreen(GREEN);
+    DEBUG_SERIAL.println("[INIT] Filled screen GREEN - can you see this?");
+    delay(1000);
+    
+    tft->fillScreen(BLUE);
+    DEBUG_SERIAL.println("[INIT] Filled screen BLUE - can you see this?");
+    delay(1000);
+    
     tft->fillScreen(BLACK);
     tft->setTextColor(WHITE);
     tft->setTextSize(2);
-    tft->setCursor(10, 60);
+    tft->setCursor(20, 60);
     tft->println("Connecting WiFi...");
-    DEBUG_SERIAL.println("[INIT] Display initialized");
+    DEBUG_SERIAL.println("[INIT] Display initialized and tested");
     
     // WiFiManager
     DEBUG_SERIAL.println("[WIFI] Starting WiFi connection...");
@@ -334,29 +359,36 @@ void setup() {
     DEBUG_SERIAL.println(" dBm");
     
     tft->fillScreen(BLACK);
-    tft->setCursor(10, 60);
+    tft->setCursor(20, 60);
     tft->println("WiFi Connected!");
     delay(1000);
     
     // Initialize Stepper Motor
-    DEBUG_SERIAL.println("[INIT] Starting motor calibration...");
-    tft->fillScreen(BLACK);
-    tft->setCursor(10, 60);
-    tft->println("Calibrating motor...");
-    
-    // Perform homing/calibration
-    int calibrationAttempts = 0;
-    while (!isCalibrated) {
-        isCalibrated = stepperPosCalibrate();
-        calibrationAttempts++;
-        if (calibrationAttempts % 100 == 0) {
-            DEBUG_SERIAL.printf("[CALIBRATION] Attempt %d, Step: %d\n", calibrationAttempts, stepperCalibrationStep);
+    #if ENABLE_CALIBRATION
+        DEBUG_SERIAL.println("[INIT] Starting motor calibration...");
+        tft->fillScreen(BLACK);
+        tft->setCursor(20, 60);
+        tft->println("Calibrating motor...");
+        
+        // Perform homing/calibration
+        int calibrationAttempts = 0;
+        while (!isCalibrated) {
+            isCalibrated = stepperPosCalibrate();
+            calibrationAttempts++;
+            if (calibrationAttempts % 100 == 0) {
+                DEBUG_SERIAL.printf("[CALIBRATION] Attempt %d, Step: %d\n", calibrationAttempts, stepperCalibrationStep);
+            }
         }
-    }
+        
+        DEBUG_SERIAL.println("[INIT] Motor calibration complete!");
+    #else
+        DEBUG_SERIAL.println("[INIT] Motor calibration DISABLED (ENABLE_CALIBRATION = false)");
+        DEBUG_SERIAL.println("[INIT] Motor will NOT move until calibration is enabled");
+        isCalibrated = false; // Explicitly set to false
+    #endif
     
-    DEBUG_SERIAL.println("[INIT] Motor calibration complete!");
     tft->fillScreen(BLACK);
-    tft->setCursor(10, 60);
+    tft->setCursor(20, 60);
     tft->println("Ready!");
     delay(1000);
     
@@ -389,7 +421,7 @@ void loop() {
         DEBUG_SERIAL.println(WiFi.status());
         
         tft->fillScreen(BLACK);
-        tft->setCursor(10, 80);
+        tft->setCursor(20, 80);
         tft->setTextSize(2);
         tft->println("WiFi Error!");
         
