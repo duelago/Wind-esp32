@@ -6,32 +6,30 @@
 #include <AccelStepper.h>
 #include <SPI.h>
 
-// LED Configuration
 #define LED_PIN 8
 #define NUM_LEDS 1
 CRGB leds[NUM_LEDS];
 
-// Display Configuration
-#define TFT_CS     14
-#define TFT_RST    21
-#define TFT_DC     15
-#define TFT_SCK    7
-#define TFT_MOSI   6
-#define TFT_BL 22
+// ---------------- Display Configuration ----------------
+// ESP32-C6-Touch-LCD-1.47 Correct Pins
+#define TFT_CS   14
+#define TFT_DC   15
+#define TFT_RST  21
+#define TFT_SCK  7
+#define TFT_MOSI 6
+#define TFT_BL   22
 
-// Display dimensions
 #define SCREEN_WIDTH 172
 #define SCREEN_HEIGHT 320
 
 Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, -1);
 Arduino_GFX *tft = new Arduino_ST7789(bus, TFT_RST, 1, true, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-// Stepper Motor Configuration
-#define MOTOR_PIN1 14
-#define MOTOR_PIN2 12
-#define MOTOR_PIN3 13
-#define MOTOR_PIN4 15
-#define HOME_SWITCH 16
+#define MOTOR_PIN1 0
+#define MOTOR_PIN2 1
+#define MOTOR_PIN3 2
+#define MOTOR_PIN4 3
+#define HOME_SWITCH 18
 
 // Motor parameters
 #define STEPS_PER_ROTATION 4096
@@ -78,17 +76,22 @@ static long shortest_distance(long origin, long target) {
         if (origin > target)
             signedDiff = -signedDiff;
     }
+    DEBUG_SERIAL.printf("[STEPPER] Shortest distance from %ld to %ld = %ld steps\n", origin, target, signedDiff);
     return signedDiff;
 }
 
 // Function to run stepper motor
 void runStepper(long steps) {
     if (steps != 0) {
+        DEBUG_SERIAL.printf("[STEPPER] Moving %ld steps\n", steps);
         stepper.enableOutputs();
         stepper.move(steps);
         stepper.runToPosition();
         delay(2);
         stepper.disableOutputs();
+        DEBUG_SERIAL.println("[STEPPER] Movement complete");
+    } else {
+        DEBUG_SERIAL.println("[STEPPER] No movement needed (0 steps)");
     }
 }
 
@@ -98,11 +101,12 @@ bool stepperPosCalibrate() {
 
     switch (stepperCalibrationStep) {
         case 0:
+            DEBUG_SERIAL.println("[CALIBRATION] Step 0: Starting homing sequence");
             stepper.stop();
             stepper.setMaxSpeed(STEPPER_MAX_SPEED);
             stepper.setAcceleration(STEPPER_ACC);
             stepper.enableOutputs();
-            DEBUG_SERIAL.println("Stepper is Homing...");
+            DEBUG_SERIAL.println("[CALIBRATION] Stepper is Homing...");
             stepperCalibrationStep = 10;
             break;
             
@@ -113,11 +117,13 @@ bool stepperPosCalibrate() {
             delay(5);
             if ((digitalRead(HOME_SWITCH) == LOW && !homeSwitchInverse) || 
                 (digitalRead(HOME_SWITCH) == HIGH && homeSwitchInverse)) {
+                DEBUG_SERIAL.println("[CALIBRATION] Step 10: Home switch triggered");
                 stepperCalibrationStep = 20;
             }
             break;
             
         case 20:
+            DEBUG_SERIAL.println("[CALIBRATION] Step 20: Setting zero position");
             stepper.setCurrentPosition(0);
             stepper.setMaxSpeed(STEPPER_HOMING_SPEED);
             stepper.setAcceleration(STEPPER_HOMING_ACC);
@@ -132,13 +138,14 @@ bool stepperPosCalibrate() {
             delay(5);
             if ((digitalRead(HOME_SWITCH) == HIGH && !homeSwitchInverse) || 
                 (digitalRead(HOME_SWITCH) == LOW && homeSwitchInverse)) {
+                DEBUG_SERIAL.println("[CALIBRATION] Step 30: Home switch released");
                 stepperCalibrationStep = 40;
             }
             break;
             
         case 40:
             stepper.setCurrentPosition(0);
-            DEBUG_SERIAL.println("Homing Completed");
+            DEBUG_SERIAL.println("[CALIBRATION] Step 40: Homing Completed Successfully");
             stepper.setMaxSpeed(STEPPER_MAX_SPEED);
             stepper.setAcceleration(STEPPER_ACC);
             stepper.disableOutputs();
@@ -154,28 +161,42 @@ bool stepperPosCalibrate() {
 
 // Move stepper to wind direction (0-360 degrees)
 void moveStepperToDirection(float targetDirection) {
+    DEBUG_SERIAL.printf("[STEPPER] Moving to wind direction: %.1f degrees\n", targetDirection);
     auto targetPosition = long(targetDirection * double(STEPS_PER_ROTATION) / 360.0);
     auto currentPosition = stepper.currentPosition();
+    DEBUG_SERIAL.printf("[STEPPER] Current position: %ld, Target position: %ld\n", currentPosition, targetPosition);
     runStepper(shortest_distance(currentPosition, targetPosition));
 }
 
 // Function to fetch data from the API
 String fetchData(const char* apiUrl) {
+    DEBUG_SERIAL.println("[HTTP] Starting API request...");
+    DEBUG_SERIAL.printf("[HTTP] URL: %s\n", apiUrl);
+    
     HTTPClient http;
     http.begin(apiUrl);
+    http.setTimeout(10000); // 10 second timeout
+    
     int httpCode = http.GET();
+    DEBUG_SERIAL.printf("[HTTP] Response code: %d\n", httpCode);
     
     if (httpCode > 0) {
-        return http.getString();
+        String payload = http.getString();
+        DEBUG_SERIAL.printf("[HTTP] Response length: %d bytes\n", payload.length());
+        DEBUG_SERIAL.println("[HTTP] Response data:");
+        DEBUG_SERIAL.println(payload);
+        http.end();
+        return payload;
     } else {
-        DEBUG_SERIAL.println("Error on HTTP request");
+        DEBUG_SERIAL.printf("[HTTP] Error: %s\n", http.errorToString(httpCode).c_str());
+        http.end();
         return "";
     }
-    http.end();
 }
 
 // Function to display centered wind speed with FreeSansBold
 void displayCenteredWindSpeed(float speed, uint16_t textColor, uint16_t bgColor) {
+    DEBUG_SERIAL.printf("[DISPLAY] Updating display - Speed: %.1f m/s\n", speed);
     tft->fillScreen(bgColor);
     
     // Convert speed to string with 1 decimal place
@@ -210,30 +231,41 @@ void displayCenteredWindSpeed(float speed, uint16_t textColor, uint16_t bgColor)
     tft->setFont(&FreeSansBold18pt7b);
     tft->setCursor(startX + w_speed, yPos);
     tft->print(label);
+    
+    DEBUG_SERIAL.println("[DISPLAY] Display update complete");
 }
 
 // Function to process JSON and control LED, Display, and Stepper
 void processJSON(String jsonResponse) {
+    DEBUG_SERIAL.println("[JSON] Processing JSON response...");
+    
     StaticJsonDocument<512> doc;
     DeserializationError error = deserializeJson(doc, jsonResponse);
     
     if (error) {
-        DEBUG_SERIAL.print("JSON Deserialization failed: ");
+        DEBUG_SERIAL.print("[JSON] Deserialization failed: ");
         DEBUG_SERIAL.println(error.c_str());
         return;
     }
+
+    DEBUG_SERIAL.println("[JSON] JSON parsed successfully");
 
     // Extract wind data
     windInfo.speed = doc["wind"]["speed"];
     windInfo.direction = doc["wind"]["direction"];
     windInfo.temperature = doc["temperature"];
 
-    DEBUG_SERIAL.printf("Wind Speed: %.1f m/s, Direction: %.1f°, Temp: %.1f°C\n", 
-                        windInfo.speed, windInfo.direction, windInfo.temperature);
+    DEBUG_SERIAL.println("[DATA] Wind Information:");
+    DEBUG_SERIAL.printf("  Speed: %.1f m/s\n", windInfo.speed);
+    DEBUG_SERIAL.printf("  Direction: %.1f degrees\n", windInfo.direction);
+    DEBUG_SERIAL.printf("  Temperature: %.1f°C\n", windInfo.temperature);
 
     // Move stepper motor to wind direction (only if calibrated)
     if (isCalibrated) {
+        DEBUG_SERIAL.println("[CONTROL] Motor is calibrated, moving to direction");
         moveStepperToDirection(windInfo.direction);
+    } else {
+        DEBUG_SERIAL.println("[CONTROL] WARNING: Motor not calibrated, skipping movement");
     }
 
     // Determine color based on conditions
@@ -241,17 +273,21 @@ void processJSON(String jsonResponse) {
     uint16_t textColor = WHITE;
     
     if (windInfo.speed > 10.0) {
+        DEBUG_SERIAL.println("[CONTROL] Condition: HIGH WIND (>10 m/s) - Setting BLUE");
         leds[0] = CRGB::Blue;
         backgroundColor = BLUE;
     } else if (windInfo.speed >= 4.0 && windInfo.speed <= 8.0 && 
                windInfo.direction >= 160.0 && windInfo.direction <= 260.0) {
+        DEBUG_SERIAL.println("[CONTROL] Condition: GOOD (4-8 m/s, 160-260°) - Setting GREEN");
         leds[0] = CRGB::Green;
         backgroundColor = GREEN;
     } else {
+        DEBUG_SERIAL.println("[CONTROL] Condition: POOR - Setting RED");
         leds[0] = CRGB::Red;
         backgroundColor = RED;
     }
     FastLED.show();
+    DEBUG_SERIAL.println("[LED] LED color updated");
 
     // Display centered wind speed
     displayCenteredWindSpeed(windInfo.speed, textColor, backgroundColor);
@@ -259,24 +295,43 @@ void processJSON(String jsonResponse) {
 
 void setup() {
     Serial.begin(115200);
+    delay(1000); // Give serial time to initialize
+    
+    DEBUG_SERIAL.println("\n\n=================================");
+    DEBUG_SERIAL.println("ESP32 Wind Monitor Starting...");
+    DEBUG_SERIAL.println("=================================");
     
     // Initialize LED
+    DEBUG_SERIAL.println("[INIT] Initializing LED...");
     FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
     leds[0] = CRGB::Black;
     FastLED.show();
+    DEBUG_SERIAL.println("[INIT] LED initialized");
     
     // Initialize Display
+    DEBUG_SERIAL.println("[INIT] Initializing display...");
     tft->begin();
     tft->fillScreen(BLACK);
     tft->setTextColor(WHITE);
     tft->setTextSize(2);
     tft->setCursor(10, 60);
     tft->println("Connecting WiFi...");
+    DEBUG_SERIAL.println("[INIT] Display initialized");
     
     // WiFiManager
+    DEBUG_SERIAL.println("[WIFI] Starting WiFi connection...");
+    DEBUG_SERIAL.println("[WIFI] AP Name: esp32-wind");
     WiFiManager wifiManager;
     wifiManager.autoConnect("esp32-wind");
-    DEBUG_SERIAL.println("WiFi connected");
+    
+    DEBUG_SERIAL.println("[WIFI] WiFi connected successfully!");
+    DEBUG_SERIAL.print("[WIFI] IP Address: ");
+    DEBUG_SERIAL.println(WiFi.localIP());
+    DEBUG_SERIAL.print("[WIFI] SSID: ");
+    DEBUG_SERIAL.println(WiFi.SSID());
+    DEBUG_SERIAL.print("[WIFI] Signal Strength: ");
+    DEBUG_SERIAL.print(WiFi.RSSI());
+    DEBUG_SERIAL.println(" dBm");
     
     tft->fillScreen(BLACK);
     tft->setCursor(10, 60);
@@ -284,36 +339,63 @@ void setup() {
     delay(1000);
     
     // Initialize Stepper Motor
+    DEBUG_SERIAL.println("[INIT] Starting motor calibration...");
     tft->fillScreen(BLACK);
     tft->setCursor(10, 60);
     tft->println("Calibrating motor...");
     
     // Perform homing/calibration
+    int calibrationAttempts = 0;
     while (!isCalibrated) {
         isCalibrated = stepperPosCalibrate();
+        calibrationAttempts++;
+        if (calibrationAttempts % 100 == 0) {
+            DEBUG_SERIAL.printf("[CALIBRATION] Attempt %d, Step: %d\n", calibrationAttempts, stepperCalibrationStep);
+        }
     }
     
+    DEBUG_SERIAL.println("[INIT] Motor calibration complete!");
     tft->fillScreen(BLACK);
     tft->setCursor(10, 60);
     tft->println("Ready!");
     delay(1000);
+    
+    DEBUG_SERIAL.println("=================================");
+    DEBUG_SERIAL.println("Setup Complete - Entering Loop");
+    DEBUG_SERIAL.println("=================================\n");
 }
 
 void loop() {
     static const char* apiUrl = "https://api.holfuy.com/live/?s=214&pw=correcthorsebatterystaple&m=JSON&tu=C&su=m/s";
+    static unsigned long loopCount = 0;
+    
+    loopCount++;
+    DEBUG_SERIAL.println("\n---------------------------------");
+    DEBUG_SERIAL.printf("Loop iteration: %lu\n", loopCount);
+    DEBUG_SERIAL.printf("Free heap: %d bytes\n", ESP.getFreeHeap());
+    DEBUG_SERIAL.println("---------------------------------");
     
     if (WiFi.status() == WL_CONNECTED) {
+        DEBUG_SERIAL.println("[WIFI] WiFi connected, fetching data...");
         String jsonResponse = fetchData(apiUrl);
         if (jsonResponse.length() > 0) {
             processJSON(jsonResponse);
+        } else {
+            DEBUG_SERIAL.println("[ERROR] Empty response from API");
         }
     } else {
-        DEBUG_SERIAL.println("WiFi not connected. Reconnecting...");
+        DEBUG_SERIAL.println("[ERROR] WiFi not connected. Reconnecting...");
+        DEBUG_SERIAL.print("[WIFI] Status code: ");
+        DEBUG_SERIAL.println(WiFi.status());
+        
         tft->fillScreen(BLACK);
         tft->setCursor(10, 80);
         tft->setTextSize(2);
         tft->println("WiFi Error!");
+        
+        WiFi.reconnect();
     }
     
+    DEBUG_SERIAL.println("[LOOP] Waiting 60 seconds before next update...\n");
     delay(60000); // Wait for 60 seconds before the next API call
 }
