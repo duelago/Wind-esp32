@@ -19,7 +19,7 @@ CRGB leds[NUM_LEDS];
 #define TFT_MOSI 6
 #define TFT_BL   22
 
-#define SCREEN_WIDTH 172
+#define SCREEN_WIDTH 400
 #define SCREEN_HEIGHT 320
 
 Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, -1);
@@ -208,7 +208,7 @@ void displayCenteredWindSpeed(float speed, uint16_t textColor, uint16_t bgColor)
     char label[] = " m/s";
     
     // Set font for the speed number and get dimensions
-    tft->setFont(&FreeSansBold24pt7b);
+    tft->setFont(&FreeSansBold18pt7b);
     tft->setTextColor(textColor);
     
     int16_t x1, y1;
@@ -231,9 +231,9 @@ void displayCenteredWindSpeed(float speed, uint16_t textColor, uint16_t bgColor)
     tft->print(speedStr);
     
     // Draw "m/s" label on the same line with smaller font
-    tft->setFont(&FreeSansBold18pt7b);
-    tft->setCursor(startX + w_speed, yPos);
-    tft->print(label);
+   // tft->setFont(&FreeSansBold18pt7b);
+  //  tft->setCursor(startX + w_speed, yPos);
+  //  tft->print(label);
     
     DEBUG_SERIAL.println("[DISPLAY] Display update complete");
 }
