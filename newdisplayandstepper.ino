@@ -287,6 +287,7 @@ void processJSON(String jsonResponse) {
     } else {
         DEBUG_SERIAL.println("[CONTROL] Condition: POOR - Setting RED");
         leds[0] = CRGB::Red;
+        
         backgroundColor = RED;
     }
     FastLED.show();
@@ -306,7 +307,8 @@ void setup() {
     
     // Initialize LED
     DEBUG_SERIAL.println("[INIT] Initializing LED...");
-    FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+    FastLED.addLeds<WS2812, LED_PIN, RGB>(leds, NUM_LEDS);
+
     leds[0] = CRGB::Black;
     FastLED.show();
     DEBUG_SERIAL.println("[INIT] LED initialized");
