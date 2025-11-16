@@ -64,11 +64,30 @@ struct WindInfo {
 // EEPROM addresses
 #define HOLFUY_STATION_EEPROM_ADDRESS 0
 #define HOLFUY_PASSWORD_EEPROM_ADDRESS 16
+#define CONDITION_SETTINGS_ADDRESS 64
 #define EEPROM_SIZE 512
 
 // Holfuy configuration
 String holfuy_station_id = "214";  // Default station
 String holfuy_password = "correcthorsebatterystaple";  // Default password
+
+// Condition settings structure
+struct ConditionSettings {
+    float green_min_speed;
+    float green_max_speed;
+    float green_min_direction;
+    float green_max_direction;
+    float blue_threshold;
+} conditionSettings;
+
+// Default condition settings
+void setDefaultConditions() {
+    conditionSettings.green_min_speed = 4.0;
+    conditionSettings.green_max_speed = 8.0;
+    conditionSettings.green_min_direction = 160.0;
+    conditionSettings.green_max_direction = 260.0;
+    conditionSettings.blue_threshold = 10.0;
+}
 
 // Web Server
 WebServer server(80);
@@ -103,6 +122,36 @@ String readStringFromEEPROM(int addrOffset) {
     return result;
 }
 
+// Save condition settings to EEPROM
+void saveConditionsToEEPROM() {
+    EEPROM.put(CONDITION_SETTINGS_ADDRESS, conditionSettings);
+    EEPROM.commit();
+    DEBUG_SERIAL.println("[EEPROM] Condition settings saved");
+}
+
+// Load condition settings from EEPROM
+void loadConditionsFromEEPROM() {
+    ConditionSettings loaded;
+    EEPROM.get(CONDITION_SETTINGS_ADDRESS, loaded);
+    
+    // Check if values are reasonable (not uninitialized EEPROM)
+    if (loaded.green_min_speed >= 0 && loaded.green_min_speed < 100 &&
+        loaded.green_max_speed > 0 && loaded.green_max_speed < 100 &&
+        loaded.blue_threshold > 0 && loaded.blue_threshold < 100) {
+        conditionSettings = loaded;
+        DEBUG_SERIAL.println("[EEPROM] Condition settings loaded from EEPROM");
+    } else {
+        DEBUG_SERIAL.println("[EEPROM] No valid condition settings found, using defaults");
+        setDefaultConditions();
+        saveConditionsToEEPROM();
+    }
+    
+    DEBUG_SERIAL.printf("[CONDITIONS] Green: %.1f-%.1f m/s, %.0f-%.0f degrees\n", 
+                        conditionSettings.green_min_speed, conditionSettings.green_max_speed,
+                        conditionSettings.green_min_direction, conditionSettings.green_max_direction);
+    DEBUG_SERIAL.printf("[CONDITIONS] Blue threshold: %.1f m/s\n", conditionSettings.blue_threshold);
+}
+
 // Web Interface HTML
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -114,7 +163,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 <style>
 body {
     font-family: Arial, sans-serif;
-    max-width: 600px;
+    max-width: 800px;
     margin: 50px auto;
     padding: 20px;
     background-color: #f0f0f0;
@@ -133,6 +182,7 @@ h2 {
     color: #666;
     border-bottom: 2px solid #4CAF50;
     padding-bottom: 10px;
+    margin-top: 30px;
 }
 .form-group {
     margin-bottom: 20px;
@@ -143,7 +193,7 @@ label {
     font-weight: bold;
     color: #555;
 }
-input[type="text"] {
+input[type="text"], input[type="number"] {
     width: 100%;
     padding: 10px;
     border: 1px solid #ddd;
@@ -176,13 +226,30 @@ input[type="submit"]:hover {
     margin: 5px 0;
     color: #666;
 }
-.success-message {
-    background-color: #d4edda;
-    color: #155724;
+.condition-box {
+    background-color: #f9f9f9;
     padding: 15px;
     border-radius: 5px;
-    margin-bottom: 20px;
-    border: 1px solid #c3e6cb;
+    margin-bottom: 15px;
+    border-left: 4px solid #ccc;
+}
+.condition-box.green { border-left-color: #4CAF50; }
+.condition-box.blue { border-left-color: #2196F3; }
+.condition-box.red { border-left-color: #f44336; }
+.condition-box h3 {
+    margin-top: 0;
+    color: #333;
+}
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+.info-text {
+    font-size: 14px;
+    color: #666;
+    font-style: italic;
+    margin-top: 5px;
 }
 </style>
 </head>
@@ -207,11 +274,56 @@ input[type="submit"]:hover {
 <label for="password">Password:</label>
 <input type="text" id="password" name="password" value="%PASSWORD%" required>
 </div>
-<input type="submit" value="Save Configuration">
+<input type="submit" value="Save Station Configuration">
+</form>
+
+<h2>LED & Display Conditions</h2>
+<form action="/saveconditions" method="GET">
+
+<div class="condition-box green">
+<h3>🟢 GREEN Condition (Good Wind)</h3>
+<div class="form-row">
+<div class="form-group">
+<label for="green_min_speed">Min Speed (m/s):</label>
+<input type="number" step="0.1" id="green_min_speed" name="green_min_speed" value="%GREEN_MIN_SPEED%" required>
+</div>
+<div class="form-group">
+<label for="green_max_speed">Max Speed (m/s):</label>
+<input type="number" step="0.1" id="green_max_speed" name="green_max_speed" value="%GREEN_MAX_SPEED%" required>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="green_min_dir">Min Direction (degrees):</label>
+<input type="number" step="1" id="green_min_dir" name="green_min_dir" value="%GREEN_MIN_DIRECTION%" required>
+</div>
+<div class="form-group">
+<label for="green_max_dir">Max Direction (degrees):</label>
+<input type="number" step="1" id="green_max_dir" name="green_max_dir" value="%GREEN_MAX_DIRECTION%" required>
+</div>
+</div>
+<p class="info-text">Green indicates ideal wind conditions within specified speed and direction ranges</p>
+</div>
+
+<div class="condition-box blue">
+<h3>🔵 BLUE Condition (High Wind)</h3>
+<div class="form-group">
+<label for="blue_threshold">Wind Speed Threshold (m/s):</label>
+<input type="number" step="0.1" id="blue_threshold" name="blue_threshold" value="%BLUE_THRESHOLD%" required>
+<p class="info-text">Blue indicates wind speed above this threshold (regardless of direction)</p>
+</div>
+</div>
+
+<div class="condition-box red">
+<h3>🔴 RED Condition (Poor Wind)</h3>
+<p class="info-text">Red indicates all other conditions (wind outside green parameters and below blue threshold)</p>
+</div>
+
+<input type="submit" value="Save Condition Settings">
 </form>
 
 <div style="margin-top: 30px; text-align: center; color: #999; font-size: 12px;">
-<p>WindFlag v2.0 - Station configuration will be saved to EEPROM</p>
+<p>WindFlag v2.1 - All settings saved to EEPROM</p>
 <p>Contact info@holfuy.hu for station API credentials</p>
 </div>
 </div>
@@ -267,11 +379,22 @@ void handleRoot() {
     DEBUG_SERIAL.println("[WEB] Serving root page");
     String html = String(index_html);
     
-    // Replace placeholders
+    // Replace condition settings with longer placeholder names
+    html.replace("%GREEN_MIN_SPEED%", String(conditionSettings.green_min_speed, 1));
+    html.replace("%GREEN_MAX_SPEED%", String(conditionSettings.green_max_speed, 1));
+    html.replace("%GREEN_MIN_DIRECTION%", String(conditionSettings.green_min_direction, 0));
+    html.replace("%GREEN_MAX_DIRECTION%", String(conditionSettings.green_max_direction, 0));
+    html.replace("%BLUE_THRESHOLD%", String(conditionSettings.blue_threshold, 1));
+    
+    // Then replace station settings
     html.replace("%STATION_ID%", holfuy_station_id);
     html.replace("%PASSWORD%", holfuy_password);
-    html.replace("%PASSWORD_DISPLAY%", "********");  // Mask password display
+    html.replace("%PASSWORD_DISPLAY%", "********");
     html.replace("%IP_ADDRESS%", WiFi.localIP().toString());
+    
+    DEBUG_SERIAL.println("[WEB] Sending page with values:");
+    DEBUG_SERIAL.printf("  Green min dir: %.0f\n", conditionSettings.green_min_direction);
+    DEBUG_SERIAL.printf("  Green max dir: %.0f\n", conditionSettings.green_max_direction);
     
     server.send(200, "text/html", html);
 }
@@ -299,6 +422,43 @@ void handleSaveHolfuy() {
         server.send(200, "text/html", html);
         
         DEBUG_SERIAL.println("[WEB] Configuration saved to EEPROM");
+    } else {
+        server.send(400, "text/plain", "Missing parameters");
+        DEBUG_SERIAL.println("[WEB] Error: Missing parameters");
+    }
+}
+
+// Handle save conditions
+void handleSaveConditions() {
+    DEBUG_SERIAL.println("[WEB] Saving condition settings");
+    
+    if (server.hasArg("green_min_speed") && server.hasArg("green_max_speed") &&
+        server.hasArg("green_min_dir") && server.hasArg("green_max_dir") &&
+        server.hasArg("blue_threshold")) {
+        
+        conditionSettings.green_min_speed = server.arg("green_min_speed").toFloat();
+        conditionSettings.green_max_speed = server.arg("green_max_speed").toFloat();
+        conditionSettings.green_min_direction = server.arg("green_min_dir").toFloat();
+        conditionSettings.green_max_direction = server.arg("green_max_dir").toFloat();
+        conditionSettings.blue_threshold = server.arg("blue_threshold").toFloat();
+        
+        DEBUG_SERIAL.println("[WEB] New Condition Settings:");
+        DEBUG_SERIAL.printf("  Green: %.1f-%.1f m/s, %.0f-%.0f degrees\n", 
+                           conditionSettings.green_min_speed, conditionSettings.green_max_speed,
+                           conditionSettings.green_min_direction, conditionSettings.green_max_direction);
+        DEBUG_SERIAL.printf("  Blue threshold: %.1f m/s\n", conditionSettings.blue_threshold);
+        
+        // Save to EEPROM
+        saveConditionsToEEPROM();
+        
+        // Send success page
+        String html = String(success_html);
+        html.replace("%STATION_ID%", "Condition Settings");
+        html.replace("%PASSWORD_DISPLAY%", "Updated Successfully");
+        
+        server.send(200, "text/html", html);
+        
+        DEBUG_SERIAL.println("[WEB] Condition settings saved to EEPROM");
     } else {
         server.send(400, "text/plain", "Missing parameters");
         DEBUG_SERIAL.println("[WEB] Error: Missing parameters");
@@ -504,13 +664,18 @@ void processJSON(String jsonResponse) {
     uint16_t backgroundColor;
     uint16_t textColor = WHITE;
     
-    if (windInfo.speed > 10.0) {
-        DEBUG_SERIAL.println("[CONTROL] Condition: HIGH WIND (>10 m/s) - Setting BLUE");
+    // Check conditions based on user-defined settings
+    if (windInfo.speed > conditionSettings.blue_threshold) {
+        DEBUG_SERIAL.printf("[CONTROL] Condition: HIGH WIND (>%.1f m/s) - Setting BLUE\n", conditionSettings.blue_threshold);
         leds[0] = CRGB::Blue;
         backgroundColor = BLUE;
-    } else if (windInfo.speed >= 4.0 && windInfo.speed <= 8.0 && 
-               windInfo.direction >= 160.0 && windInfo.direction <= 260.0) {
-        DEBUG_SERIAL.println("[CONTROL] Condition: GOOD (4-8 m/s, 160-260°) - Setting GREEN");
+    } else if (windInfo.speed >= conditionSettings.green_min_speed && 
+               windInfo.speed <= conditionSettings.green_max_speed && 
+               windInfo.direction >= conditionSettings.green_min_direction && 
+               windInfo.direction <= conditionSettings.green_max_direction) {
+        DEBUG_SERIAL.printf("[CONTROL] Condition: GOOD (%.1f-%.1f m/s, %.0f-%.0f°) - Setting GREEN\n",
+                           conditionSettings.green_min_speed, conditionSettings.green_max_speed,
+                           conditionSettings.green_min_direction, conditionSettings.green_max_direction);
         leds[0] = CRGB::Green;
         backgroundColor = GREEN;
     } else {
@@ -536,6 +701,9 @@ void setup() {
     DEBUG_SERIAL.println("[INIT] Initializing EEPROM...");
     EEPROM.begin(EEPROM_SIZE);
     
+    // Set default conditions first
+    setDefaultConditions();
+    
     // Load saved configuration from EEPROM
     String saved_station = readStringFromEEPROM(HOLFUY_STATION_EEPROM_ADDRESS);
     String saved_password = readStringFromEEPROM(HOLFUY_PASSWORD_EEPROM_ADDRESS);
@@ -549,6 +717,9 @@ void setup() {
         holfuy_password = saved_password;
         DEBUG_SERIAL.printf("[INIT] Loaded password from EEPROM: %s\n", holfuy_password.c_str());
     }
+    
+    // Load condition settings
+    loadConditionsFromEEPROM();
     
     // Initialize LED
     DEBUG_SERIAL.println("[INIT] Initializing LED...");
@@ -600,6 +771,7 @@ void setup() {
     DEBUG_SERIAL.println("[WEB] Starting web server...");
     server.on("/", handleRoot);
     server.on("/saveholfuy", handleSaveHolfuy);
+    server.on("/saveconditions", handleSaveConditions);
     server.begin();
     DEBUG_SERIAL.println("[WEB] Web server started");
     DEBUG_SERIAL.printf("[WEB] Configuration page: http://%s/\n", WiFi.localIP().toString().c_str());
