@@ -60,7 +60,7 @@ struct WindInfo {
 #define DEBUG_SERIAL if (DEBUG) Serial
 
 // Calibration flag - set to false to skip motor calibration
-#define ENABLE_CALIBRATION false
+#define ENABLE_CALIBRATION true
 
 // EEPROM addresses
 #define HOLFUY_STATION_EEPROM_ADDRESS 0
@@ -256,7 +256,7 @@ input[type="submit"]:hover {
 </head>
 <body>
 <div class="container">
-<h1>🌪️ WindFlag Configuration</h1>
+<h1>💨 WindFlag Configuration</h1>
 
 <div class="current-config">
 <h3>Current Configuration</h3>
