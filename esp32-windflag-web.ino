@@ -278,7 +278,7 @@ input[type="submit"]:hover {
 <input type="submit" value="Save Station Configuration">
 </form>
 
-<h2>LED & Display Conditions</h2>
+<h2>Display Color</h2>
 <form action="/saveconditions" method="GET">
 
 <div class="condition-box green">
