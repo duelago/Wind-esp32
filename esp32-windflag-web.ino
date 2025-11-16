@@ -7,6 +7,7 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
 
 #define LED_PIN 8
 #define NUM_LEDS 1
@@ -759,12 +760,24 @@ void setup() {
     DEBUG_SERIAL.print("[WIFI] IP Address: ");
     DEBUG_SERIAL.println(WiFi.localIP());
     
+    // Initialize mDNS
+    DEBUG_SERIAL.println("[MDNS] Starting mDNS...");
+    if (MDNS.begin("windflag")) {
+        DEBUG_SERIAL.println("[MDNS] mDNS responder started");
+        DEBUG_SERIAL.println("[MDNS] Access device at: http://windflag.local");
+        MDNS.addService("http", "tcp", 80);
+    } else {
+        DEBUG_SERIAL.println("[MDNS] Error starting mDNS");
+    }
+    
     tft->fillScreen(BLACK);
     tft->setCursor(20, 60);
     tft->println("WiFi Connected!");
     tft->setCursor(20, 100);
     tft->print("IP: ");
     tft->println(WiFi.localIP());
+    tft->setCursor(20, 140);
+    tft->println("windflag.local");
     delay(2000);
     
     // Initialize Web Server
@@ -774,7 +787,7 @@ void setup() {
     server.on("/saveconditions", handleSaveConditions);
     server.begin();
     DEBUG_SERIAL.println("[WEB] Web server started");
-    DEBUG_SERIAL.printf("[WEB] Configuration page: http://%s/\n", WiFi.localIP().toString().c_str());
+    DEBUG_SERIAL.printf("[WEB] Configuration page: http://%s/ or http://windflag.local/\n", WiFi.localIP().toString().c_str());
     
     // Initialize Stepper Motor
     #if ENABLE_CALIBRATION
