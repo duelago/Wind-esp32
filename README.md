@@ -8,8 +8,12 @@ Skärmen lyser grön, röd eller blå beroende på om det är flygbart eller ej.
 Följande behövs för ett bygge:
 
 <b>ESP32 med display:</b> https://www.waveshare.com/esp32-c6-lcd-1.47.htm
+<br>
 <b>Stepper Motor 28BYJ-48-5V och driver board ULN2003:</b> https://de.aliexpress.com/item/1005008207445943.html
+<br>
 <b>Hall sensor KY-003:</b> https://de.aliexpress.com/item/1005008528506743.html
+<br>
 <b>Dupont female-female 15 cm:</b> https://de.aliexpress.com/item/4000203371860.html
+<br>
 <b>Magnet 6x2 mm:</b> https://de.aliexpress.com/item/1005010052380726.html
 
