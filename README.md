@@ -1,13 +1,13 @@
-# WindFlag Esp32
+# WindFlag Color ESP32
 
-Fulhack av WindFlag med "Windlight-funktionalitet". Bytt ut gamla esp8266 mot en esp32 med integrerad LCD-skärm i färg. Koden saknar webinterface än så länge och alla värden är hårdkodade. Lådan är omodellerad för att passa den nya skärmen och är inte helt rund längre.
+WindFlag med "Windlight-funktionalitet". Bytt ut gamla esp8266 mot en esp32 med integrerad LCD-skärm i färg. Lådan är omodellerad för att passa den nya skärmen och är inte helt rund längre.
 
 Windexpilen och pinne till pilen är identisk.
 Skärmen lyser grön, röd eller blå beroende på om det är flygbart eller ej. Blå signalerar riktigt hård vind. 
 
 Följande behövs för ett bygge:
 
-<b>ESP32 med display:</b> https://www.waveshare.com/esp32-c6-lcd-1.47.htm
+<b>ESP32 med display (Enklast med versionen som kommer med headers fastlödda) :</b> https://www.waveshare.com/esp32-c6-lcd-1.47.htm
 <br>
 <b>Stepper Motor 28BYJ-48-5V och driver board ULN2003:</b> https://de.aliexpress.com/item/1005008207445943.html
 <br>
@@ -19,3 +19,6 @@ Följande behövs för ett bygge:
 <p></p>
 
 Alla filer printas i PLA med 0.4 mm munstycke. Kompassrosen kräver ett färgbyte för de översta lagren så man ser texten 
+
+
+<img width="400" height="928" alt="Screenshot 2025-11-18 at 12 44 36" src="https://github.com/user-attachments/assets/27ef0444-e918-4368-9a01-b666e84668a2" />
