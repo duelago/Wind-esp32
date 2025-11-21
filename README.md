@@ -1,5 +1,9 @@
 # WindFlag Color ESP32
 
+
+<img width="720" height="720" alt="vlcsnap-2025-11-21-15h04m04s446" src="https://github.com/user-attachments/assets/c5b6314a-a9e7-45cf-bc30-4205d92d16fb" />
+
+
 WindFlag med "Windlight-funktionalitet". Bytt ut gamla esp8266 mot en esp32 med integrerad LCD-skärm i färg. Lådan är omodellerad för att passa den nya skärmen och är inte helt rund längre.
 
 Windexpilen och pinne till pilen är identisk.
