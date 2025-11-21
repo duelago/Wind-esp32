@@ -24,6 +24,8 @@ Följande behövs för ett bygge:
 <p></p>
 
 Alla filer printas i PLA med 0.4 mm munstycke. Kompassrosen kräver ett färgbyte för de översta lagren så man ser texten 
+<br>
+Vi behöver ansluta två kablar till ground men har bara en ground-pinne så en splicad kabel behövs (enkelt att löda ihop)
 
 
 <img width="400" height="928" alt="Screenshot 2025-11-18 at 12 44 36" src="https://github.com/user-attachments/assets/27ef0444-e918-4368-9a01-b666e84668a2" />
