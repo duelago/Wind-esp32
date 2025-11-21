@@ -5,7 +5,7 @@
 
 <p></p>
 WindFlag med "Windlight-funktionalitet". Bytt ut gamla esp8266 mot en esp32 med integrerad LCD-skärm i färg. Lådan är omodellerad för att passa den nya skärmen och är inte helt rund längre.
-
+<p></p>
 Windexpilen och pinne till pilen är identisk.
 Skärmen lyser grön, röd eller blå beroende på om det är flygbart eller ej. Blå signalerar riktigt hård vind. 
 
