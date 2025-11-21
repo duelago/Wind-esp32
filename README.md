@@ -15,7 +15,8 @@ Följande behövs för ett bygge:
 <br>
 <b>Dupont female-female 15 cm:</b> https://de.aliexpress.com/item/4000203371860.html
 <br>
-<b>Magnet 6x2 mm:</b> https://de.aliexpress.com/item/1005010052380726.html
+<b>Magnet 6x2 mm:</b> https://de.aliexpress.com/item/1005010052380726.html<br>
+USB-C-kabel med 90 graders böj så att kabeln får plats i lådan. https://de.aliexpress.com/item/1005009685359407.html
 <p></p>
 
 Alla filer printas i PLA med 0.4 mm munstycke. Kompassrosen kräver ett färgbyte för de översta lagren så man ser texten 
