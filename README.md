@@ -23,9 +23,9 @@ Följande behövs för ett bygge:
 <b>USB-C-kabel med 90 graders böj</b> så att kabeln får plats i lådan. https://de.aliexpress.com/item/1005009685359407.html
 <p></p>
 
-Alla filer printas i PLA med 0.4 mm munstycke. Kompassrosen kräver ett färgbyte för de översta lagren så man ser texten 
+Alla filer printas i PLA med 0.4 mm munstycke. Kör paint-on-support för öppningen till skärmen och välj snug support. Kompassrosen kräver ett färgbyte för de översta lagren. Printa windexpinnen i 45 graders lutning med support för att förbättra hållfastigheten.
 <br>
-Vi behöver ansluta två kablar till ground men har bara en ground-pinne så en splicad kabel behövs (enkelt att löda ihop)
+Vi behöver ansluta två kablar till ground men har bara en ground-pinne så en splicad kabel behövs (enkelt att löda ihop) I övrigt behöver inget lödas om man köper esp32an med headers på plats från fabrik. 
 
 
 <img width="400" height="928" alt="Screenshot 2025-11-18 at 12 44 36" src="https://github.com/user-attachments/assets/27ef0444-e918-4368-9a01-b666e84668a2" />
