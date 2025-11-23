@@ -364,15 +364,15 @@ input[type="submit"]:hover {
 <label>Display wind speed in:</label>
 <div class="radio-group">
 <label>
-<input type="radio" name="unit" value="ms" %UNIT_MS_CHECKED%>
+<input type="radio" name="unit" value="ms" %UNIT_MS_CHECKED% onchange="updateSpeedUnits()">
 m/s 
 </label>
 <label>
-<input type="radio" name="unit" value="kmh" %UNIT_KMH_CHECKED%>
+<input type="radio" name="unit" value="kmh" %UNIT_KMH_CHECKED% onchange="updateSpeedUnits()">
 km/h 
 </label>
 </div>
-<p class="info-text">Note: Speed thresholds below are always entered in m/s</p>
+<p class="info-text" id="unit-info">Speed thresholds will be entered in the selected unit</p>
 </div>
 </div>
 
@@ -380,11 +380,11 @@ km/h
 <h3>🟢 GREEN Condition (Good Wind)</h3>
 <div class="form-row">
 <div class="form-group">
-<label for="green_min_speed">Min Speed (m/s):</label>
+<label for="green_min_speed">Min Speed (<span id="speed-unit-1">%SPEED_UNIT%</span>):</label>
 <input type="number" step="0.1" id="green_min_speed" name="green_min_speed" value="%GREEN_MIN_SPEED%" required>
 </div>
 <div class="form-group">
-<label for="green_max_speed">Max Speed (m/s):</label>
+<label for="green_max_speed">Max Speed (<span id="speed-unit-2">%SPEED_UNIT%</span>):</label>
 <input type="number" step="0.1" id="green_max_speed" name="green_max_speed" value="%GREEN_MAX_SPEED%" required>
 </div>
 </div>
@@ -404,11 +404,59 @@ km/h
 <div class="condition-box blue">
 <h3>🔵 BLUE Condition (High Wind)</h3>
 <div class="form-group">
-<label for="blue_threshold">Wind Speed Threshold (m/s):</label>
+<label for="blue_threshold">Wind Speed Threshold (<span id="speed-unit-3">%SPEED_UNIT%</span>):</label>
 <input type="number" step="0.1" id="blue_threshold" name="blue_threshold" value="%BLUE_THRESHOLD%" required>
 <p class="info-text">Blue indicates wind speed above this threshold (regardless of direction)</p>
 </div>
 </div>
+
+<script>
+// Store original values in m/s
+var originalValues = {
+    green_min: %GREEN_MIN_SPEED%,
+    green_max: %GREEN_MAX_SPEED%,
+    blue: %BLUE_THRESHOLD%,
+    currentUnit: '%SPEED_UNIT%'
+};
+
+function updateSpeedUnits() {
+    var msRadio = document.querySelector('input[name="unit"][value="ms"]');
+    var kmhRadio = document.querySelector('input[name="unit"][value="kmh"]');
+    var isKmh = kmhRadio.checked;
+    var newUnit = isKmh ? 'km/h' : 'm/s';
+    
+    // Get current values from form
+    var greenMin = parseFloat(document.getElementById('green_min_speed').value);
+    var greenMax = parseFloat(document.getElementById('green_max_speed').value);
+    var blueThresh = parseFloat(document.getElementById('blue_threshold').value);
+    
+    // Convert values based on unit change
+    if (originalValues.currentUnit === 'm/s' && isKmh) {
+        // Converting from m/s to km/h
+        greenMin = greenMin * 3.6;
+        greenMax = greenMax * 3.6;
+        blueThresh = blueThresh * 3.6;
+    } else if (originalValues.currentUnit === 'km/h' && !isKmh) {
+        // Converting from km/h to m/s
+        greenMin = greenMin / 3.6;
+        greenMax = greenMax / 3.6;
+        blueThresh = blueThresh / 3.6;
+    }
+    
+    // Update form values
+    document.getElementById('green_min_speed').value = greenMin.toFixed(1);
+    document.getElementById('green_max_speed').value = greenMax.toFixed(1);
+    document.getElementById('blue_threshold').value = blueThresh.toFixed(1);
+    
+    // Update unit labels
+    document.getElementById('speed-unit-1').textContent = newUnit;
+    document.getElementById('speed-unit-2').textContent = newUnit;
+    document.getElementById('speed-unit-3').textContent = newUnit;
+    
+    // Update current unit
+    originalValues.currentUnit = newUnit;
+}
+</script>
 
 <div class="condition-box red">
 <h3>🔴 RED Condition (Poor Wind)</h3>
@@ -485,12 +533,27 @@ void handleRoot() {
     html.replace("%UNIT_KMH_CHECKED%", conditionSettings.use_kmh ? "checked" : "");
     html.replace("%CURRENT_UNIT%", conditionSettings.use_kmh ? "km/h" : "m/s");
     
-    // Replace condition settings with longer placeholder names
-    html.replace("%GREEN_MIN_SPEED%", String(conditionSettings.green_min_speed, 1));
-    html.replace("%GREEN_MAX_SPEED%", String(conditionSettings.green_max_speed, 1));
+    // Convert speed values to display unit
+    float display_green_min = conditionSettings.green_min_speed;
+    float display_green_max = conditionSettings.green_max_speed;
+    float display_blue_threshold = conditionSettings.blue_threshold;
+    
+    if (conditionSettings.use_kmh) {
+        display_green_min *= 3.6;
+        display_green_max *= 3.6;
+        display_blue_threshold *= 3.6;
+    }
+    
+    // Replace condition settings with values in selected unit
+    html.replace("%GREEN_MIN_SPEED%", String(display_green_min, 1));
+    html.replace("%GREEN_MAX_SPEED%", String(display_green_max, 1));
     html.replace("%GREEN_MIN_DIRECTION%", String(conditionSettings.green_min_direction, 0));
     html.replace("%GREEN_MAX_DIRECTION%", String(conditionSettings.green_max_direction, 0));
-    html.replace("%BLUE_THRESHOLD%", String(conditionSettings.blue_threshold, 1));
+    html.replace("%BLUE_THRESHOLD%", String(display_blue_threshold, 1));
+    
+    // Replace speed unit labels
+    String speedUnit = conditionSettings.use_kmh ? "km/h" : "m/s";
+    html.replace("%SPEED_UNIT%", speedUnit);
     
     // Then replace station settings
     html.replace("%STATION_ID%", holfuy_station_id);
@@ -499,8 +562,9 @@ void handleRoot() {
     html.replace("%IP_ADDRESS%", WiFi.localIP().toString());
     
     DEBUG_SERIAL.println("[WEB] Sending page with values:");
-    DEBUG_SERIAL.printf("  Green min dir: %.0f\n", conditionSettings.green_min_direction);
-    DEBUG_SERIAL.printf("  Green max dir: %.0f\n", conditionSettings.green_max_direction);
+    DEBUG_SERIAL.printf("  Green min speed: %.1f %s (%.1f m/s)\n", display_green_min, speedUnit.c_str(), conditionSettings.green_min_speed);
+    DEBUG_SERIAL.printf("  Green max speed: %.1f %s (%.1f m/s)\n", display_green_max, speedUnit.c_str(), conditionSettings.green_max_speed);
+    DEBUG_SERIAL.printf("  Blue threshold: %.1f %s (%.1f m/s)\n", display_blue_threshold, speedUnit.c_str(), conditionSettings.blue_threshold);
     DEBUG_SERIAL.printf("  Display unit: %s\n", conditionSettings.use_kmh ? "km/h" : "m/s");
     
     server.send(200, "text/html", html);
@@ -543,12 +607,26 @@ void handleSaveConditions() {
         server.hasArg("green_min_dir") && server.hasArg("green_max_dir") &&
         server.hasArg("blue_threshold") && server.hasArg("unit")) {
         
-        conditionSettings.green_min_speed = server.arg("green_min_speed").toFloat();
-        conditionSettings.green_max_speed = server.arg("green_max_speed").toFloat();
+        bool input_is_kmh = (server.arg("unit") == "kmh");
+        
+        // Convert input values to m/s if they were entered in km/h
+        float green_min = server.arg("green_min_speed").toFloat();
+        float green_max = server.arg("green_max_speed").toFloat();
+        float blue_thresh = server.arg("blue_threshold").toFloat();
+        
+        if (input_is_kmh) {
+            green_min = green_min / 3.6;  // Convert km/h to m/s
+            green_max = green_max / 3.6;
+            blue_thresh = blue_thresh / 3.6;
+            DEBUG_SERIAL.println("[WEB] Input values converted from km/h to m/s");
+        }
+        
+        conditionSettings.green_min_speed = green_min;
+        conditionSettings.green_max_speed = green_max;
         conditionSettings.green_min_direction = server.arg("green_min_dir").toFloat();
         conditionSettings.green_max_direction = server.arg("green_max_dir").toFloat();
-        conditionSettings.blue_threshold = server.arg("blue_threshold").toFloat();
-        conditionSettings.use_kmh = (server.arg("unit") == "kmh");
+        conditionSettings.blue_threshold = blue_thresh;
+        conditionSettings.use_kmh = input_is_kmh;
         
         DEBUG_SERIAL.println("[WEB] New Condition Settings:");
         DEBUG_SERIAL.printf("  Green: %.1f-%.1f m/s, %.0f-%.0f degrees\n", 
