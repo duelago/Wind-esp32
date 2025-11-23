@@ -80,6 +80,7 @@ struct ConditionSettings {
     float green_min_direction;
     float green_max_direction;
     float blue_threshold;
+    bool use_kmh;  // NEW: true = km/h, false = m/s
 } conditionSettings;
 
 // Default condition settings
@@ -89,6 +90,7 @@ void setDefaultConditions() {
     conditionSettings.green_min_direction = 160.0;
     conditionSettings.green_max_direction = 260.0;
     conditionSettings.blue_threshold = 10.0;
+    conditionSettings.use_kmh = false;  // NEW: Default to m/s
 }
 
 // Web Server
@@ -191,6 +193,7 @@ void loadConditionsFromEEPROM() {
                         conditionSettings.green_min_speed, conditionSettings.green_max_speed,
                         conditionSettings.green_min_direction, conditionSettings.green_max_direction);
     DEBUG_SERIAL.printf("[CONDITIONS] Blue threshold: %.1f m/s\n", conditionSettings.blue_threshold);
+    DEBUG_SERIAL.printf("[CONDITIONS] Display unit: %s\n", conditionSettings.use_kmh ? "km/h" : "m/s");
 }
 
 // Web Interface HTML
@@ -292,6 +295,21 @@ input[type="submit"]:hover {
     font-style: italic;
     margin-top: 5px;
 }
+.radio-group {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+}
+.radio-group label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+    cursor: pointer;
+}
+.radio-group input[type="radio"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -303,6 +321,7 @@ input[type="submit"]:hover {
 <p><strong>Station ID:</strong> %STATION_ID%</p>
 <p><strong>Password:</strong> %PASSWORD_DISPLAY%</p>
 <p><strong>IP Address:</strong> %IP_ADDRESS%</p>
+<p><strong>Display Unit:</strong> %CURRENT_UNIT%</p>
 </div>
 
 <h2>Holfuy Station Settings</h2>
@@ -318,8 +337,26 @@ input[type="submit"]:hover {
 <input type="submit" value="Save Station Configuration">
 </form>
 
-<h2>Display Color</h2>
+<h2>Display Settings</h2>
 <form action="/saveconditions" method="GET">
+
+<div class="condition-box">
+<h3>📊 Wind Speed Unit</h3>
+<div class="form-group">
+<label>Display wind speed in:</label>
+<div class="radio-group">
+<label>
+<input type="radio" name="unit" value="ms" %UNIT_MS_CHECKED%>
+m/s (meters per second)
+</label>
+<label>
+<input type="radio" name="unit" value="kmh" %UNIT_KMH_CHECKED%>
+km/h (kilometers per hour)
+</label>
+</div>
+<p class="info-text">Note: Speed thresholds below are always entered in m/s</p>
+</div>
+</div>
 
 <div class="condition-box green">
 <h3>🟢 GREEN Condition (Good Wind)</h3>
@@ -360,11 +397,11 @@ input[type="submit"]:hover {
 <p class="info-text">Red indicates all other conditions (wind outside green parameters and below blue threshold)</p>
 </div>
 
-<input type="submit" value="Save Condition Settings">
+<input type="submit" value="Save Display Settings">
 </form>
 
 <div style="margin-top: 30px; text-align: center; color: #999; font-size: 12px;">
-<p>WindFlag v2.1 - All settings saved to EEPROM</p>
+<p>WindFlag v2.2 - All settings saved to EEPROM</p>
 <p>Contact info@holfuy.hu for station API credentials</p>
 </div>
 </div>
@@ -420,6 +457,11 @@ void handleRoot() {
     DEBUG_SERIAL.println("[WEB] Serving root page");
     String html = String(index_html);
     
+    // Replace unit settings
+    html.replace("%UNIT_MS_CHECKED%", conditionSettings.use_kmh ? "" : "checked");
+    html.replace("%UNIT_KMH_CHECKED%", conditionSettings.use_kmh ? "checked" : "");
+    html.replace("%CURRENT_UNIT%", conditionSettings.use_kmh ? "km/h" : "m/s");
+    
     // Replace condition settings with longer placeholder names
     html.replace("%GREEN_MIN_SPEED%", String(conditionSettings.green_min_speed, 1));
     html.replace("%GREEN_MAX_SPEED%", String(conditionSettings.green_max_speed, 1));
@@ -436,6 +478,7 @@ void handleRoot() {
     DEBUG_SERIAL.println("[WEB] Sending page with values:");
     DEBUG_SERIAL.printf("  Green min dir: %.0f\n", conditionSettings.green_min_direction);
     DEBUG_SERIAL.printf("  Green max dir: %.0f\n", conditionSettings.green_max_direction);
+    DEBUG_SERIAL.printf("  Display unit: %s\n", conditionSettings.use_kmh ? "km/h" : "m/s");
     
     server.send(200, "text/html", html);
 }
@@ -475,26 +518,28 @@ void handleSaveConditions() {
     
     if (server.hasArg("green_min_speed") && server.hasArg("green_max_speed") &&
         server.hasArg("green_min_dir") && server.hasArg("green_max_dir") &&
-        server.hasArg("blue_threshold")) {
+        server.hasArg("blue_threshold") && server.hasArg("unit")) {
         
         conditionSettings.green_min_speed = server.arg("green_min_speed").toFloat();
         conditionSettings.green_max_speed = server.arg("green_max_speed").toFloat();
         conditionSettings.green_min_direction = server.arg("green_min_dir").toFloat();
         conditionSettings.green_max_direction = server.arg("green_max_dir").toFloat();
         conditionSettings.blue_threshold = server.arg("blue_threshold").toFloat();
+        conditionSettings.use_kmh = (server.arg("unit") == "kmh");
         
         DEBUG_SERIAL.println("[WEB] New Condition Settings:");
         DEBUG_SERIAL.printf("  Green: %.1f-%.1f m/s, %.0f-%.0f degrees\n", 
                            conditionSettings.green_min_speed, conditionSettings.green_max_speed,
                            conditionSettings.green_min_direction, conditionSettings.green_max_direction);
         DEBUG_SERIAL.printf("  Blue threshold: %.1f m/s\n", conditionSettings.blue_threshold);
+        DEBUG_SERIAL.printf("  Display unit: %s\n", conditionSettings.use_kmh ? "km/h" : "m/s");
         
         // Save to EEPROM
         saveConditionsToEEPROM();
         
         // Send success page
         String html = String(success_html);
-        html.replace("%STATION_ID%", "Condition Settings");
+        html.replace("%STATION_ID%", "Display Settings");
         html.replace("%PASSWORD_DISPLAY%", "Updated Successfully");
         
         server.send(200, "text/html", html);
@@ -648,12 +693,28 @@ String fetchData(const char* apiUrl) {
 }
 
 // Function to display centered wind speed
-void displayCenteredWindSpeed(float speed, uint16_t textColor, uint16_t bgColor) {
-    DEBUG_SERIAL.printf("[DISPLAY] Updating display - Speed: %.1f m/s\n", speed);
+void displayCenteredWindSpeed(float speed_ms, uint16_t textColor, uint16_t bgColor) {
+    float displaySpeed = speed_ms;
+    String unit = "m/s";
+    
+    if (conditionSettings.use_kmh) {
+        displaySpeed = speed_ms * 3.6;  // Convert m/s to km/h
+        unit = "km/h";
+        DEBUG_SERIAL.printf("[DISPLAY] Updating display - Speed: %.1f m/s (%.0f km/h)\n", speed_ms, displaySpeed);
+    } else {
+        DEBUG_SERIAL.printf("[DISPLAY] Updating display - Speed: %.1f m/s\n", speed_ms);
+    }
+    
     tft->fillScreen(bgColor);
     
     char speedStr[8];
-    dtostrf(speed, 0, 1, speedStr);
+    if (conditionSettings.use_kmh) {
+        // No decimals for km/h
+        dtostrf(displaySpeed, 0, 0, speedStr);
+    } else {
+        // One decimal for m/s
+        dtostrf(displaySpeed, 0, 1, speedStr);
+    }
     
     tft->setFont(&FreeSansBold24pt7b);
     tft->setTextColor(textColor);
