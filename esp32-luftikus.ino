@@ -8,6 +8,7 @@
 #include <EEPROM.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
+#include <ElegantOTA.h>
 #include "luftikus.h"
 
 #define LED_PIN 8
@@ -259,6 +260,23 @@ input[type="submit"] {
 input[type="submit"]:hover {
     background-color: #45a049;
 }
+.ota-button {
+    background-color: #2196F3;
+    color: white;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    width: 100%;
+    margin-top: 10px;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+.ota-button:hover {
+    background-color: #0b7dda;
+}
 .current-config {
     background-color: #f9f9f9;
     padding: 15px;
@@ -400,8 +418,13 @@ km/h
 <input type="submit" value="Save Display Settings">
 </form>
 
+<h2>Firmware Update</h2>
+<div style="text-align: center;">
+<a href="/update" class="ota-button" style="width: auto; display: inline-block; padding: 12px 40px;">🔄 OTA Update</a>
+</div>
+
 <div style="margin-top: 30px; text-align: center; color: #999; font-size: 12px;">
-<p>WindFlag v2.2 - All settings saved to EEPROM</p>
+<p>WindFlag v2.3 - All settings saved to EEPROM</p>
 <p>Contact info@holfuy.hu for station API credentials</p>
 </div>
 </div>
@@ -882,9 +905,15 @@ void setup() {
     server.on("/", handleRoot);
     server.on("/saveholfuy", handleSaveHolfuy);
     server.on("/saveconditions", handleSaveConditions);
+    
+    // Initialize ElegantOTA
+    ElegantOTA.begin(&server);
+    DEBUG_SERIAL.println("[OTA] ElegantOTA initialized");
+    
     server.begin();
     DEBUG_SERIAL.println("[WEB] Web server started");
     DEBUG_SERIAL.printf("[WEB] Configuration page: http://%s/ or http://windflag.local/\n", WiFi.localIP().toString().c_str());
+    DEBUG_SERIAL.printf("[OTA] OTA Update page: http://%s/update or http://windflag.local/update\n", WiFi.localIP().toString().c_str());
     
     // Initialize Stepper Motor
     #if ENABLE_CALIBRATION
@@ -928,6 +957,9 @@ void loop() {
     
     // Handle web server requests
     server.handleClient();
+    
+    // Handle ElegantOTA
+    ElegantOTA.loop();
     
     // Update weather data every 60 seconds
     if (currentMillis - lastUpdate >= 60000 || lastUpdate == 0) {
