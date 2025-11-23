@@ -352,7 +352,7 @@ input[type="submit"]:hover {
 <label for="password">Password:</label>
 <input type="text" id="password" name="password" value="%PASSWORD%" required>
 </div>
-<input type="submit" value="Save Station Configuration">
+<input type="submit" value="Save Station Conf">
 </form>
 
 <h2>Display Settings</h2>
@@ -490,34 +490,127 @@ const char success_html[] PROGMEM = R"rawliteral(
 <meta http-equiv="refresh" content="3;url=/">
 <title>Configuration Saved</title>
 <style>
-body {
-    font-family: Arial, sans-serif;
-    max-width: 600px;
-    margin: 50px auto;
-    padding: 20px;
-    background-color: #f0f0f0;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #e8f4f8 0%, #f0f9ff 100%);
+    padding: 16px;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .container {
-    background-color: white;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-width: 500px;
+    width: 100%;
     text-align: center;
 }
-.success {
-    color: #155724;
+
+.success-icon {
+    font-size: 64px;
+    margin-bottom: 24px;
+    animation: scaleIn 0.5s ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+.success-title {
+    color: #10b981;
     font-size: 24px;
-    margin-bottom: 20px;
+    font-weight: 600;
+    margin-bottom: 24px;
+}
+
+.info-box {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    text-align: left;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.info-value {
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.redirect-text {
+    color: #64748b;
+    margin-bottom: 16px;
+}
+
+.link {
+    color: #0ea5e9;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+    .container {
+        padding: 32px 24px;
+    }
+    
+    .success-title {
+        font-size: 20px;
+    }
 }
 </style>
 </head>
 <body>
 <div class="container">
-<div class="success">✅ Configuration Saved Successfully!</div>
-<p>Station ID: <strong>%STATION_ID%</strong></p>
-<p>Password: <strong>%PASSWORD_DISPLAY%</strong></p>
-<p>Redirecting to main page in 3 seconds...</p>
-<p><a href="/">Click here if not redirected</a></p>
+    <div class="success-icon">✅</div>
+    <div class="success-title">Configuration Saved Successfully!</div>
+    <div class="info-box">
+        <div class="info-row">
+            <span class="info-label">Station ID:</span>
+            <span class="info-value">%STATION_ID%</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Password:</span>
+            <span class="info-value">%PASSWORD_DISPLAY%</span>
+        </div>
+    </div>
+    <p class="redirect-text">Redirecting to main page in 3 seconds...</p>
+    <p><a href="/" class="link">Click here if not redirected</a></p>
 </div>
 </body>
 </html>
