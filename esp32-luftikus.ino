@@ -260,6 +260,12 @@ input[type="submit"] {
 input[type="submit"]:hover {
     background-color: #7e22ce;
 }
+input[type="submit"].btn-green {
+    background-color: #4CAF50;
+}
+input[type="submit"].btn-green:hover {
+    background-color: #45a049;
+}
 .ota-button {
     background-color: #9333ea;
     color: white;
@@ -463,7 +469,7 @@ function updateSpeedUnits() {
 <p class="info-text">Red indicates all other conditions (wind outside green parameters and below blue threshold)</p>
 </div>
 
-<input type="submit" value="Save Display Settings">
+<input type="submit" value="Save Display Settings" class="btn-green">
 </form>
 
 <h2>Firmware Update</h2>
