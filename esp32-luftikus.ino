@@ -347,11 +347,11 @@ input[type="submit"]:hover {
 <div class="radio-group">
 <label>
 <input type="radio" name="unit" value="ms" %UNIT_MS_CHECKED%>
-m/s (meters per second)
+m/s 
 </label>
 <label>
 <input type="radio" name="unit" value="kmh" %UNIT_KMH_CHECKED%>
-km/h (kilometers per hour)
+km/h 
 </label>
 </div>
 <p class="info-text">Note: Speed thresholds below are always entered in m/s</p>
