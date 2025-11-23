@@ -225,7 +225,7 @@ h1 {
 }
 h2 {
     color: #666;
-    border-bottom: 2px solid #4CAF50;
+    border-bottom: 2px solid #9333ea;
     padding-bottom: 10px;
     margin-top: 30px;
 }
@@ -247,7 +247,7 @@ input[type="text"], input[type="number"] {
     font-size: 16px;
 }
 input[type="submit"] {
-    background-color: #4CAF50;
+    background-color: #9333ea;
     color: white;
     padding: 12px 30px;
     border: none;
@@ -258,10 +258,10 @@ input[type="submit"] {
     margin-top: 10px;
 }
 input[type="submit"]:hover {
-    background-color: #45a049;
+    background-color: #7e22ce;
 }
 .ota-button {
-    background-color: #2196F3;
+    background-color: #9333ea;
     color: white;
     padding: 12px 30px;
     border: none;
@@ -275,14 +275,14 @@ input[type="submit"]:hover {
     text-align: center;
 }
 .ota-button:hover {
-    background-color: #0b7dda;
+    background-color: #7e22ce;
 }
 .current-config {
     background-color: #f9f9f9;
     padding: 15px;
     border-radius: 5px;
     margin-bottom: 20px;
-    border-left: 4px solid #4CAF50;
+    border-left: 4px solid #9333ea;
 }
 .current-config p {
     margin: 5px 0;
@@ -575,7 +575,7 @@ body {
 }
 
 .link {
-    color: #0ea5e9;
+    color: #9333ea;
     text-decoration: none;
     font-weight: 500;
 }
