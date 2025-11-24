@@ -8,6 +8,9 @@ WindFlag med "Windlight-funktionalitet". Bytt ut gamla esp8266 mot en esp32 med 
 <p></p>
 Windexpilen och pinne till pilen är identisk.
 Skärmen lyser grön, röd eller blå beroende på om det är flygbart eller ej. Blå signalerar riktigt hård vind. 
+<p></p>
+<img width="750" height="363" alt="Screenshot 2025-11-24 at 14 05 51" src="https://github.com/user-attachments/assets/f932bd94-cbfe-4c38-8943-45dc227c27d0" />
+
 
 Följande behövs för ett bygge:
 
