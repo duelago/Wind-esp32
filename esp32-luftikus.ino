@@ -120,7 +120,6 @@ void drawBitmap(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int16_t 
     }
 }
 
-// Function to display Luftikus logo centered on screen
 void displayLuftikusLogo() {
     DEBUG_SERIAL.println("[DISPLAY] Showing Luftikus logo");
     
@@ -130,9 +129,9 @@ void displayLuftikusLogo() {
     int16_t logo_width = 320;
     int16_t logo_height = 172;
     
-    // Calculate center position
-    int16_t x = (SCREEN_WIDTH - logo_width) / 2;
-    int16_t y = (SCREEN_HEIGHT - logo_height) / 2;
+    // Calculate center position with offsets
+    int16_t x = (SCREEN_WIDTH - logo_width) / 2 - 30;  // Move 30px left
+    int16_t y = (SCREEN_HEIGHT - logo_height) / 2 - 20; // Move 10px up
     
     // Draw the bitmap
     drawBitmap(x, y, epd_bitmap_luftikus, logo_width, logo_height, WHITE);
@@ -923,8 +922,9 @@ void displayCenteredWindSpeed(float speed_ms, uint16_t textColor, uint16_t bgCol
     uint16_t w_speed, h_speed;
     tft->getTextBounds(speedStr, 0, 0, &x1, &y1, &w_speed, &h_speed);
     
-    int startX = (SCREEN_WIDTH - w_speed) / 2;
-    int yPos = (SCREEN_HEIGHT / 2);
+    // Apply offsets: 30px left, 10px up
+    int startX = (SCREEN_WIDTH - w_speed) / 2 - 40;  // Move 30px left
+    int yPos = (SCREEN_HEIGHT / 2) - 10;              // Move 10px up
     
     tft->setCursor(startX, yPos);
     tft->print(speedStr);
@@ -1040,7 +1040,7 @@ void setup() {
     
     // Display Luftikus logo for 3 seconds
     displayLuftikusLogo();
-    delay(3000);
+    delay(5000);
     
     DEBUG_SERIAL.println("[INIT] Display initialized");
     
@@ -1053,7 +1053,7 @@ void setup() {
     tft->println("Connecting WiFi...");
     
     WiFiManager wifiManager;
-    wifiManager.autoConnect("esp32-wind");
+    wifiManager.autoConnect("WindFlag Color");
     
     DEBUG_SERIAL.println("[WIFI] WiFi connected successfully!");
     DEBUG_SERIAL.print("[WIFI] IP Address: ");
