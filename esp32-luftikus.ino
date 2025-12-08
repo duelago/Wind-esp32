@@ -1044,7 +1044,7 @@ void setup() {
     
     DEBUG_SERIAL.println("[INIT] Display initialized");
     
-    // WiFiManager
+// WiFiManager
     DEBUG_SERIAL.println("[WIFI] Starting WiFi connection...");
     tft->fillScreen(BLACK);
     tft->setTextColor(WHITE);
@@ -1053,6 +1053,8 @@ void setup() {
     tft->println("Connecting WiFi...");
     
     WiFiManager wifiManager;
+    wifiManager.setConnectTimeout(45);   // 45 seconds to try connecting to known SSID
+    wifiManager.setConfigPortalTimeout(180); // 180 seconds (3 min) for config portal
     wifiManager.autoConnect("WindFlag Color");
     
     DEBUG_SERIAL.println("[WIFI] WiFi connected successfully!");
