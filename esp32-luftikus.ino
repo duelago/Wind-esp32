@@ -38,7 +38,7 @@ Arduino_GFX *tft = new Arduino_ST7789(bus, TFT_RST, 1, true, SCREEN_WIDTH, SCREE
 // Motor parameters
 #define STEPS_PER_ROTATION 4096
 #define STEPPER_MAX_SPEED 400.0
-#define STEPPER_HOMING_SPEED 100.0
+#define STEPPER_HOMING_SPEED 250.0
 #define STEPPER_ACC 100.0
 #define STEPPER_HOMING_ACC 50.0
 
